@@ -1,6 +1,6 @@
 package com.majun.soprobot.api;
 
-import com.majun.soprobot.api.dto.EventMessage;
+import com.majun.soprobot.lark.eventsubscribe.EventMessage;
 import com.majun.soprobot.service.LarkEventService;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;

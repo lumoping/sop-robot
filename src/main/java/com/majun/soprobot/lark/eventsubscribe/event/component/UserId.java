@@ -1,4 +1,4 @@
-package com.majun.soprobot.api.dto.event.component;
+package com.majun.soprobot.lark.eventsubscribe.event.component;
 
 public record UserId(
         String union_id,

@@ -1,6 +1,6 @@
-package com.majun.soprobot.api.dto;
+package com.majun.soprobot.lark.eventsubscribe;
 
-import com.majun.soprobot.api.dto.event.component.UserId;
+import com.majun.soprobot.lark.eventsubscribe.event.component.UserId;
 
 public record EventMessage(String schema,
                            Header header,
