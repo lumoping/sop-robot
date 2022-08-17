@@ -2,9 +2,12 @@ package com.majun.soprobot.lark.eventsubscribe;
 
 import com.majun.soprobot.lark.eventsubscribe.event.component.UserId;
 
-public record EventMessage(String schema,
-                           Header header,
-                           Event event) {
+public record EventMessage<T extends EventMessage.Event>(String schema,
+                                                         Header header,
+                                                         T event,
+                                                         String challenge,
+                                                         String token,
+                                                         String type) {
 
     public record Header(
             String event_id,

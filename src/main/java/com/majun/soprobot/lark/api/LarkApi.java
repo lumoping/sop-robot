@@ -138,6 +138,17 @@ public class LarkApi {
                 .flatMap(it -> it.success() ? Mono.empty() : Mono.error(new LarkException(it.code + ":" + it.msg)));
     }
 
+    public Mono<TaskCreateResp> createTask(String tenantAccessToken, TaskCreateReq taskCreateReq) {
+        return webClient.post()
+                .uri("open-apis/task/v1/tasks")
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + tenantAccessToken)
+                .body(Mono.just(taskCreateReq), SendMessageReq.class)
+                .accept(MediaType.APPLICATION_JSON)
+                .retrieve()
+                .bodyToMono(TaskCreateResp.typeRef)
+                .flatMap(it -> it.success() ? Mono.just(it.data) : Mono.error(new LarkException(it.code + ":" + it.msg)));
+    }
+
 
     public record AppCert(String app_id, String app_secret) {
     }
@@ -338,5 +349,76 @@ public class LarkApi {
             String content,
             String msg_type
     ) {
+    }
+
+    record TaskCreateReq(
+            String summary,
+            String description,
+            String extra,
+            Due due,
+            Origin origin,
+            boolean can_edit,
+            String custom,
+            String[] collaborator_ids,
+            String[] follower_ids,
+            String repeat_rule,
+            String rich_summary,
+            String rich_description
+    ) {
+        record Due(String time, String timezone, boolean is_all_day) {
+        }
+
+        record Origin(String platform_i18n_name, Href href) {
+            record Href(String url, String title) {
+            }
+        }
+    }
+
+    record TaskCreateResp(
+
+
+    ) implements LarkResponseData {
+        static ParameterizedTypeReference<LarkResponse<TaskCreateResp>> typeRef = new ParameterizedTypeReference<>() {
+        };
+
+        record Task(
+                String id,
+                String summary,
+                String description,
+                String complete_time,
+                String creator_id,
+                String extra,
+                String create_time,
+                String update_time,
+                Due due,
+                Origin origin,
+                boolean can_edit,
+                String custom,
+                int source,
+                Follower[] followers,
+                Collaborator[] collaborators,
+                String[] collaborator_ids,
+                String[] follower_ids,
+                String repeat_rule,
+                String rich_summary,
+                String rich_description
+        ) {
+            record Due(String time, String timezone, boolean is_all_day) {
+            }
+
+            record Origin(String platform_i18n_name, TaskCreateReq.Origin.Href href) {
+                record Href(String url, String title) {
+                }
+            }
+
+            record Follower(String id, String[] id_list) {
+
+            }
+
+            record Collaborator(String id, String[] id_list) {
+
+            }
+
+        }
     }
 }
