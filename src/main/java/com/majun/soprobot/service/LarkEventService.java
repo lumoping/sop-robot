@@ -1,10 +1,9 @@
 package com.majun.soprobot.service;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import reactor.core.publisher.Mono;
-
-import java.util.Map;
 
 public interface LarkEventService {
 
-    Mono<Void> produceMessage(Map<String, Object> message);
+    Mono<Void> produceMessage(JsonNode message);
 }

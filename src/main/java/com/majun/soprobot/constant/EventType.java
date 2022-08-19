@@ -1,14 +1,18 @@
-package com.majun.soprobot.lark.eventsubscribe.event.constant;
+package com.majun.soprobot.constant;
 
 import java.util.Arrays;
 import java.util.Objects;
 import java.util.Optional;
 
 public enum EventType {
+    ROBOT_ENTER_CHAT("im.chat.member.bot.added_v1"),
+    MESSAGE_RECEIVE("im.message.receive_v1"),
+    FILE_TITLE_UPDATE("drive.file.title_updated_v1"),
+    FILE_EDIT("drive.file.edit_v1"),
+    FILE_TRASHED("drive.file.trashed_v1"),
+    FILE_DELETE("drive.file.deleted_v1"),
+    ;
 
-    MessageReceive("im.message.receive_v1"),
-    FileDelete("drive.file.trashed_v1"),
-    FileEdit("drive.file.edit_v1");
 
     private final String value;
 

@@ -1,0 +1,48 @@
+{
+  "config": {
+    "wide_screen_mode": true
+  },
+  "header": {
+    "title": {
+      "tag": "plain_text",
+      "content": "Standard Operating Procedure"
+    },
+    "template": "blue"
+  },
+  "elements": [
+    {
+      "tag": "markdown",
+      "content": "点击以下按钮查看详情"
+    },
+    {
+      "tag": "action",
+      "actions": [
+        {
+          "tag": "button",
+          "text": {
+            "tag": "plain_text",
+            "content": "案件状态同步"
+          },
+          "type": "primary"
+        },
+        {
+          "tag": "button",
+          "text": {
+            "tag": "plain_text",
+            "content": "Git回退"
+          },
+          "type": "primary"
+        }
+      ]
+    },
+    {
+      "tag": "note",
+      "elements": [
+        {
+          "tag": "plain_text",
+          "content": "标准操作程序（SOP）是一套详细的分步说明，描述如何执行任何给定过程"
+        }
+      ]
+    }
+  ]
+}

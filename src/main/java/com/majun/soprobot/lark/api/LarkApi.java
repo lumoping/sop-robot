@@ -1,13 +1,18 @@
 package com.majun.soprobot.lark.api;
 
-import org.springframework.beans.factory.annotation.Value;
+import io.netty.handler.logging.LogLevel;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
+import org.springframework.http.client.reactive.ReactorClientHttpConnector;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+import reactor.netty.http.client.HttpClient;
+import reactor.netty.transport.logging.AdvancedByteBufFormat;
+
+import java.util.List;
 
 @Component
 public class LarkApi {
@@ -15,79 +20,76 @@ public class LarkApi {
     private final WebClient webClient = WebClient.builder()
             .baseUrl("https://open.feishu.cn")
             .defaultHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
+            .clientConnector(new ReactorClientHttpConnector(
+                    HttpClient.create().wiretap("reactor.netty.http.client.HttpClient", LogLevel.DEBUG, AdvancedByteBufFormat.TEXTUAL)
+            ))
             .build();
 
 
-    private final String appId;
-
-
-    private final String appSecret;
-
-    public LarkApi(@Value("${lark.appId}") String appId, @Value("${lark.appSecret}") String appSecret) {
-        this.appId = appId;
-        this.appSecret = appSecret;
-    }
-
-    public Mono<String> tenantAccessToken() {
+    public Mono<TenantAccess> tenantAccessToken(String appId, String appSecret) {
         return webClient.post()
                 .uri("open-apis/auth/v3/tenant_access_token/internal")
                 .body(Mono.just(new AppCert(appId, appSecret)), AppCert.class)
                 .accept(MediaType.APPLICATION_JSON)
                 .retrieve()
-                .bodyToMono(TenantAccessResp.class)
-                .flatMap(it -> it.success() ? Mono.just(it.tenant_access_token) : Mono.error(new LarkException(it.code + ":" + it.msg)));
+                .bodyToMono(TenantAccess.class)
+                .flatMap(it -> it.success() ? Mono.just(it) : Mono.error(new LarkException(it.code + ":" + it.msg)));
     }
 
 
     public Mono<String> rootFolderToken(String tenantAccessToken) {
         return webClient.get()
                 .uri("open-apis/drive/explorer/v2/root_folder/meta")
-                .header(HttpHeaders.AUTHORIZATION, "Bearer " + tenantAccessToken)
+                .header(HttpHeaders.AUTHORIZATION, prefixBearer(tenantAccessToken))
                 .accept(MediaType.APPLICATION_JSON)
                 .retrieve()
                 .bodyToMono(RootFolderMetaResp.typeRef)
                 .flatMap(it -> it.success() ? Mono.just(it.data.token) : Mono.error(new LarkException(it.code + ":" + it.msg)));
     }
 
+    private String prefixBearer(String tenantAccessToken) {
+        return "Bearer " + tenantAccessToken;
+    }
 
-    public Flux<String> getFilesToken(String tenantAccessToken, String folder_token) {
+
+    public Flux<String> getFilesToken(String tenantAccessToken, String folderToken) {
         return webClient.get()
-                .uri("open-apis/drive/v1/files?folder_token={folder_token}", folder_token)
-                .header(HttpHeaders.AUTHORIZATION, "Bearer " + tenantAccessToken)
+                .uri("open-apis/drive/v1/files?folder_token={folder_token}", folderToken)
+                .header(HttpHeaders.AUTHORIZATION, prefixBearer(tenantAccessToken))
                 .accept(MediaType.APPLICATION_JSON)
                 .retrieve()
                 .bodyToMono(FolderFilesResp.typeRef)
-                .flatMapMany(it -> it.success() ? Flux.just(it.data.files) : Flux.error(new LarkException(it.code + ":" + it.msg)))
-                .map(FolderFilesResp.FileMeta::token);
+                .flatMapMany(it -> it.success() ? Flux.fromIterable(it.data.files) : Flux.error(new LarkException(it.code + ":" + it.msg)))
+                .map(FileMeta::token);
     }
 
-    public Mono<FolderCreateResp> createFolder(String tenantAccessToken, String folder_token, String name) {
+    public Mono<FolderCreateResp> createFolder(String tenantAccessToken, String folderToken, String name) {
         return webClient.post()
                 .uri("/open-apis/drive/v1/files/create_folder")
-                .header(HttpHeaders.AUTHORIZATION, "Bearer " + tenantAccessToken)
-                .body(Mono.just(new FolderCreateReq(name, folder_token)), FolderCreateReq.class)
+                .header(HttpHeaders.AUTHORIZATION, prefixBearer(tenantAccessToken))
+                .body(Mono.just(new FolderCreateReq(name, folderToken)), FolderCreateReq.class)
                 .accept(MediaType.APPLICATION_JSON)
                 .retrieve()
                 .bodyToMono(FolderCreateResp.typeRef)
                 .flatMap(it -> it.success() ? Mono.just(it.data) : Mono.error(new LarkException(it.code + ":" + it.msg)));
     }
 
-    public Mono<FileCreateResp> createFile(String tenantAccessToken, String folder_token) {
+    public Mono<FileCreateResp> createFile(String tenantAccessToken, String folderToken) {
         return webClient.post()
                 .uri("open-apis/doc/v2/create")
-                .header(HttpHeaders.AUTHORIZATION, "Bearer " + tenantAccessToken)
-                .body(Mono.just(new FileCreateReq(folder_token)), FileCreateReq.class)
+                .header(HttpHeaders.AUTHORIZATION, prefixBearer(tenantAccessToken))
+                .body(Mono.just(new FileCreateReq(folderToken)), FileCreateReq.class)
                 .accept(MediaType.APPLICATION_JSON)
                 .retrieve()
                 .bodyToMono(FileCreateResp.typeRef)
                 .flatMap(it -> it.success() ? Mono.just(it.data) : Mono.error(new LarkException(it.code + ":" + it.msg)));
     }
 
-    public Mono<PermissionMemberCreateResp> createPermissionMember(String tenantAccessToken, String fileToken, String fileType, String member_type, String member_id, String perm) {
+    public Mono<PermissionMemberCreateResp> createPermissionMember(String tenantAccessToken, String fileToken, String fileType, PermissionMemberCreateReq param) {
         return webClient.post()
                 .uri("open-apis/drive/v1/permissions/{fileToken}/members?type={fileType}", fileToken, fileType)
-                .header(HttpHeaders.AUTHORIZATION, "Bearer " + tenantAccessToken)
-                .body(Mono.just(new PermissionMemberCreateReq(member_type, member_id, perm)), PermissionMemberCreateReq.class)
+                .header(HttpHeaders.AUTHORIZATION, prefixBearer(tenantAccessToken))
+                .body(Mono.just(param), PermissionMemberCreateReq.class)
                 .accept(MediaType.APPLICATION_JSON)
                 .retrieve()
                 .bodyToMono(PermissionMemberCreateResp.typeRef)
@@ -95,11 +97,11 @@ public class LarkApi {
     }
 
 
-    public Mono<Boolean> permitted(String user_access_token, String fileToken, String fileType, String perm) {
+    public Mono<Boolean> permitted(String userAccessToken, PermissionMemberPermittedReq param) {
         return webClient.post()
                 .uri("open-apis/drive/permission/member/permitted")
-                .header(HttpHeaders.AUTHORIZATION, "Bearer " + user_access_token)
-                .body(Mono.just(new PermissionMemberPermittedReq(fileToken, fileType, perm)), PermissionMemberPermittedReq.class)
+                .header(HttpHeaders.AUTHORIZATION, prefixBearer(userAccessToken))
+                .body(Mono.just(param), PermissionMemberPermittedReq.class)
                 .accept(MediaType.APPLICATION_JSON)
                 .retrieve()
                 .bodyToMono(PermissionMemberPermittedResp.typeRef)
@@ -110,7 +112,7 @@ public class LarkApi {
     public Mono<BlockGetAllResp> getAllBlock(String tenantAccessToken, String documentId) {
         return webClient.get()
                 .uri("open-apis/docx/v1/documents/{document_id}/blocks", documentId)
-                .header(HttpHeaders.AUTHORIZATION, "Bearer " + tenantAccessToken)
+                .header(HttpHeaders.AUTHORIZATION, prefixBearer(tenantAccessToken))
                 .accept(MediaType.APPLICATION_JSON)
                 .retrieve()
                 .bodyToMono(BlockGetAllResp.typeRef)
@@ -120,29 +122,29 @@ public class LarkApi {
     public Mono<BlockGetResp> getBlock(String tenantAccessToken, String documentId, String blockId) {
         return webClient.get()
                 .uri("open-apis/docx/v1/documents/{document_id}/blocks/{block_id}", documentId, blockId)
-                .header(HttpHeaders.AUTHORIZATION, "Bearer " + tenantAccessToken)
+                .header(HttpHeaders.AUTHORIZATION, prefixBearer(tenantAccessToken))
                 .accept(MediaType.APPLICATION_JSON)
                 .retrieve()
                 .bodyToMono(BlockGetResp.typeRef)
                 .flatMap(it -> it.success() ? Mono.just(it.data) : Mono.error(new LarkException(it.code + ":" + it.msg)));
     }
 
-    public Mono<Void> sendMessage(String tenantAccessToken, String receiveIdType, String receiveId, String content, String msgType) {
+    public Mono<Void> sendMessage(String tenantAccessToken, String receiveIdType, SendMessageReq param) {
         return webClient.post()
                 .uri("open-apis/im/v1/messages?receive_id_type={receive_id_type}", receiveIdType)
-                .header(HttpHeaders.AUTHORIZATION, "Bearer " + tenantAccessToken)
-                .body(Mono.just(new SendMessageReq(receiveId, content, msgType)), SendMessageReq.class)
+                .header(HttpHeaders.AUTHORIZATION, prefixBearer(tenantAccessToken))
+                .body(Mono.just(param), SendMessageReq.class)
                 .accept(MediaType.APPLICATION_JSON)
                 .retrieve()
-                .bodyToMono(LarkResponse.class)
+                .bodyToMono(SendMessageResp.typeRef)
                 .flatMap(it -> it.success() ? Mono.empty() : Mono.error(new LarkException(it.code + ":" + it.msg)));
     }
 
-    public Mono<TaskCreateResp> createTask(String tenantAccessToken, TaskCreateReq taskCreateReq) {
+    public Mono<TaskCreateResp> createTask(String tenantAccessToken, SendMessageReq param) {
         return webClient.post()
                 .uri("open-apis/task/v1/tasks")
-                .header(HttpHeaders.AUTHORIZATION, "Bearer " + tenantAccessToken)
-                .body(Mono.just(taskCreateReq), SendMessageReq.class)
+                .header(HttpHeaders.AUTHORIZATION, prefixBearer(tenantAccessToken))
+                .body(Mono.just(param), SendMessageReq.class)
                 .accept(MediaType.APPLICATION_JSON)
                 .retrieve()
                 .bodyToMono(TaskCreateResp.typeRef)
@@ -153,7 +155,7 @@ public class LarkApi {
     public record AppCert(String app_id, String app_secret) {
     }
 
-    record TenantAccessResp(int code, String msg, String tenant_access_token, int expire) {
+    public record TenantAccess(int code, String msg, String tenant_access_token, int expire) {
         boolean success() {
             return code == 0;
         }
@@ -182,7 +184,7 @@ public class LarkApi {
     }
 
     record FolderFilesResp(
-            FileMeta[] files,
+            List<FileMeta> files,
             String next_page_token,
             boolean has_more
     ) implements LarkResponseData {
@@ -190,23 +192,14 @@ public class LarkApi {
         static ParameterizedTypeReference<LarkResponse<FolderFilesResp>> typeRef = new ParameterizedTypeReference<>() {
         };
 
-        record FileMeta(
-                String token,
-                String name,
-                String type,
-                String parent_token,
-                String url
-        ) {
-
-        }
 
     }
 
-    record FolderCreateReq(String name, String folder_token) {
+    public record FolderCreateReq(String name, String folder_token) {
 
     }
 
-    record FolderCreateResp(String token, String url) implements LarkResponseData {
+    public record FolderCreateResp(String token, String url) implements LarkResponseData {
         static ParameterizedTypeReference<LarkResponse<FolderCreateResp>> typeRef = new ParameterizedTypeReference<>() {
         };
     }
@@ -246,7 +239,7 @@ public class LarkApi {
     }
 
 
-    record BlockGetAllResp(Item[] items) implements LarkResponseData {
+    record BlockGetAllResp(List<Item> items) implements LarkResponseData {
         static ParameterizedTypeReference<LarkResponse<BlockGetAllResp>> typeRef = new ParameterizedTypeReference<>() {
         };
 
@@ -254,7 +247,7 @@ public class LarkApi {
         record Item(
                 String block_id,
                 String parent_id,
-                String[] children,
+                List<String> children,
                 int block_type,
                 Block page,
                 Block text,
@@ -275,7 +268,7 @@ public class LarkApi {
         ) {
 
             record Block(Style style,
-                         Element[] elements) {
+                         List<Element> elements) {
                 record Style(
                         int align,
                         boolean done,
@@ -303,34 +296,10 @@ public class LarkApi {
                                 int text_color,
                                 Link link
                         ) {
-                            record Link(String url) {
-                            }
+
                         }
                     }
 
-                    record MentionUser(String user_id) {
-                    }
-
-                    record MentionDoc(
-                            String token,
-                            int obj_type,
-                            String url,
-                            String title
-                    ) {
-                    }
-
-                    record Reminder(
-                            String create_user_id,
-                            boolean is_notify,
-                            boolean is_whole_day,
-                            String expire_time,
-                            String notify_time
-                    ) {
-                    }
-
-                    record File(String file_token, String source_block_id) {
-
-                    }
 
                 }
             }
@@ -344,11 +313,16 @@ public class LarkApi {
         };
     }
 
-    record SendMessageReq(
+    public record SendMessageReq(
             String receive_id,
             String content,
             String msg_type
     ) {
+    }
+
+    public record SendMessageResp() implements LarkResponseData {
+        static ParameterizedTypeReference<LarkResponse<SendMessageResp>> typeRef = new ParameterizedTypeReference<>() {
+        };
     }
 
     record TaskCreateReq(
@@ -359,24 +333,16 @@ public class LarkApi {
             Origin origin,
             boolean can_edit,
             String custom,
-            String[] collaborator_ids,
-            String[] follower_ids,
+            List<String> collaborator_ids,
+            List<String> follower_ids,
             String repeat_rule,
             String rich_summary,
             String rich_description
     ) {
-        record Due(String time, String timezone, boolean is_all_day) {
-        }
-
-        record Origin(String platform_i18n_name, Href href) {
-            record Href(String url, String title) {
-            }
-        }
     }
 
+
     record TaskCreateResp(
-
-
     ) implements LarkResponseData {
         static ParameterizedTypeReference<LarkResponse<TaskCreateResp>> typeRef = new ParameterizedTypeReference<>() {
         };
@@ -395,30 +361,67 @@ public class LarkApi {
                 boolean can_edit,
                 String custom,
                 int source,
-                Follower[] followers,
-                Collaborator[] collaborators,
-                String[] collaborator_ids,
-                String[] follower_ids,
+                List<Follower> followers,
+                List<Collaborator> collaborators,
+                List<String> collaborator_ids,
+                List<String> follower_ids,
                 String repeat_rule,
                 String rich_summary,
                 String rich_description
         ) {
-            record Due(String time, String timezone, boolean is_all_day) {
-            }
-
-            record Origin(String platform_i18n_name, TaskCreateReq.Origin.Href href) {
-                record Href(String url, String title) {
-                }
-            }
-
-            record Follower(String id, String[] id_list) {
-
-            }
-
-            record Collaborator(String id, String[] id_list) {
-
-            }
-
         }
+    }
+
+    record Follower(String id, List<String> id_list) {
+
+    }
+
+    record Collaborator(String id, List<String> id_list) {
+
+    }
+
+    record Due(String time, String timezone, boolean is_all_day) {
+    }
+
+    record Origin(String platform_i18n_name, Href href) {
+        record Href(String url, String title) {
+        }
+    }
+
+    record MentionDoc(
+            String token,
+            int obj_type,
+            String url,
+            String title
+    ) {
+    }
+
+    record Reminder(
+            String create_user_id,
+            boolean is_notify,
+            boolean is_whole_day,
+            String expire_time,
+            String notify_time
+    ) {
+    }
+
+    record File(String file_token, String source_block_id) {
+
+    }
+
+    record MentionUser(String user_id) {
+    }
+
+    record Link(String url) {
+    }
+
+    record FileMeta(
+            String token,
+            String name,
+            String type,
+            String parent_token,
+            String url
+    ) {
+
     }
 }

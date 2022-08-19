@@ -1,8 +1,8 @@
 spring:
   r2dbc:
     url: r2dbc:${DB_URL:postgresql://localhost:5432/postgres}
-    username: ${DB_USER}
-    password: ${DB_PASSWORD}
+    username: ${DB_USER:postgres}
+    password: ${DB_PASSWORD:zoobidoobi}
   sql:
     init:
       mode: always
@@ -13,12 +13,17 @@ spring:
       value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
     consumer:
       group-id: test-consumer-group
-      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
-      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      key-deserializer: org.springframework.kafka.support.serializer.ErrorHandlingDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.ErrorHandlingDeserializer
+      properties:
+        spring.json.trusted.packages: '*'
+        spring.deserializer.key.delegate.class: org.apache.kafka.common.serialization.StringDeserializer
+        spring.deserializer.value.delegate.class: org.springframework.kafka.support.serializer.JsonDeserializer
 
 lark:
   appId: ${app_id:cli_a270a6db85fad00b}
   appSecret: ${app_secret:LZxrWWcHKavl6xyGLN0behga8y0neDku}
 
-
-debug: true
+logging:
+  level:
+    reactor.netty.http.client.HttpClient: DEBUG
