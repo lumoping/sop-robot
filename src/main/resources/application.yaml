@@ -19,10 +19,13 @@ spring:
         spring.json.trusted.packages: '*'
         spring.deserializer.key.delegate.class: org.apache.kafka.common.serialization.StringDeserializer
         spring.deserializer.value.delegate.class: org.springframework.kafka.support.serializer.JsonDeserializer
+  freemarker:
+    template-loader-path: classpath:/templates/
 
 lark:
   appId: ${app_id:cli_a270a6db85fad00b}
   appSecret: ${app_secret:LZxrWWcHKavl6xyGLN0behga8y0neDku}
+  baseUrl: ${base_url:https://test-cm6i5qtcwl6o.feishu.cn}
 
 logging:
   level:

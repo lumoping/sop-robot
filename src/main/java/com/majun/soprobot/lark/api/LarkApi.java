@@ -47,11 +47,6 @@ public class LarkApi {
                 .flatMap(it -> it.success() ? Mono.just(it.data.token) : Mono.error(new LarkException(it.code + ":" + it.msg)));
     }
 
-    private String prefixBearer(String tenantAccessToken) {
-        return "Bearer " + tenantAccessToken;
-    }
-
-
     public Flux<String> getFilesToken(String tenantAccessToken, String folderToken) {
         return webClient.get()
                 .uri("open-apis/drive/v1/files?folder_token={folder_token}", folderToken)
@@ -76,7 +71,7 @@ public class LarkApi {
 
     public Mono<FileCreateResp> createFile(String tenantAccessToken, String folderToken) {
         return webClient.post()
-                .uri("open-apis/doc/v2/create")
+                .uri("open-apis/docx/v1/documents")
                 .header(HttpHeaders.AUTHORIZATION, prefixBearer(tenantAccessToken))
                 .body(Mono.just(new FileCreateReq(folderToken)), FileCreateReq.class)
                 .accept(MediaType.APPLICATION_JSON)
@@ -152,6 +147,10 @@ public class LarkApi {
     }
 
 
+    private String prefixBearer(String tenantAccessToken) {
+        return "Bearer " + tenantAccessToken;
+    }
+
     public record AppCert(String app_id, String app_secret) {
     }
 
@@ -207,12 +206,30 @@ public class LarkApi {
     record FileCreateReq(String FolderToken) {
     }
 
-    record FileCreateResp(String objToken, String url) implements LarkResponseData {
+    public record FileCreateResp(Document document) implements LarkResponseData {
         static ParameterizedTypeReference<LarkResponse<FileCreateResp>> typeRef = new ParameterizedTypeReference<>() {
         };
+
+        public String documentId() {
+            return document.document_id;
+        }
+
+        public String revisionId() {
+            return document.revision_id;
+        }
+
+        public String title() {
+            return document.title;
+        }
+
+        record Document(String document_id,
+                        String revision_id,
+                        String title) {
+        }
+
     }
 
-    record PermissionMemberCreateReq(
+    public record PermissionMemberCreateReq(
             String member_type,
             String member_id,
             String perm
@@ -220,7 +237,7 @@ public class LarkApi {
 
     }
 
-    record PermissionMemberCreateResp() implements LarkResponseData {
+    public record PermissionMemberCreateResp() implements LarkResponseData {
         static ParameterizedTypeReference<LarkResponse<PermissionMemberCreateResp>> typeRef = new ParameterizedTypeReference<>() {
         };
     }
