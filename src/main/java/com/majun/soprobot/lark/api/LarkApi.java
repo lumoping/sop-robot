@@ -55,7 +55,7 @@ public class LarkApi {
                 .retrieve()
                 .bodyToMono(FolderFilesResp.typeRef)
                 .flatMapMany(it -> it.success() ? Flux.fromIterable(it.data.files) : Flux.error(new LarkException(it.code + ":" + it.msg)))
-                .map(FileMeta::token);
+                .map(it -> it.token);
     }
 
     public Mono<FolderCreateResp> createFolder(String tenantAccessToken, String folderToken, String name) {
@@ -91,6 +91,27 @@ public class LarkApi {
                 .flatMap(it -> it.success() ? Mono.just(it.data) : Mono.error(new LarkException(it.code + ":" + it.msg)));
     }
 
+    public Mono<Void> subscribeFile(String tenantAccessToken, String fileToken, String fileType) {
+        return webClient.post()
+                .uri("open-apis/drive/v1/files/{fileToken}/subscribe?file_type={fileType}", fileToken, fileType)
+                .header(HttpHeaders.AUTHORIZATION, prefixBearer(tenantAccessToken))
+                .accept(MediaType.APPLICATION_JSON)
+                .retrieve()
+                .bodyToMono(SubscribeFileResp.typeRef)
+                .flatMap(it -> it.success() ? Mono.empty() : Mono.error(new LarkException(it.code + ":" + it.msg)));
+    }
+
+    public Mono<FileMetaResp.Meta> fileMeta(String tenantAccessToken, String fileToken, String fileType) {
+        return webClient.post()
+                .uri("open-apis/drive/v1/metas/batch_query")
+                .header(HttpHeaders.AUTHORIZATION, prefixBearer(tenantAccessToken))
+                .body(Mono.just(new FileMetaReq(List.of(new FileMetaReq.Doc(fileToken, fileType)), true)), FileMetaReq.class)
+                .accept(MediaType.APPLICATION_JSON)
+                .retrieve()
+                .bodyToMono(FileMetaResp.typeRef)
+                .flatMap(it -> it.success() ? Mono.from(Flux.fromIterable(it.data.metas)) : Mono.error(new LarkException(it.code + ":" + it.msg)));
+    }
+
 
     public Mono<Boolean> permitted(String userAccessToken, PermissionMemberPermittedReq param) {
         return webClient.post()
@@ -111,6 +132,17 @@ public class LarkApi {
                 .accept(MediaType.APPLICATION_JSON)
                 .retrieve()
                 .bodyToMono(BlockGetAllResp.typeRef)
+                .flatMap(it -> it.success() ? Mono.just(it.data) : Mono.error(new LarkException(it.code + ":" + it.msg)));
+    }
+
+    public Mono<BlockCreateResp> createBlock(String tenantAccessToken, String documentId, String blockId, List<Item> blocks) {
+        return webClient.post()
+                .uri("open-apis/docx/v1/documents/{document_id}/blocks/{block_id}/children", documentId, blockId)
+                .header(HttpHeaders.AUTHORIZATION, prefixBearer(tenantAccessToken))
+                .body(Mono.just(new BlockCreateReq(blocks, 0)), BlockCreateReq.class)
+                .accept(MediaType.APPLICATION_JSON)
+                .retrieve()
+                .bodyToMono(BlockCreateResp.typeRef)
                 .flatMap(it -> it.success() ? Mono.just(it.data) : Mono.error(new LarkException(it.code + ":" + it.msg)));
     }
 
@@ -182,7 +214,7 @@ public class LarkApi {
         };
     }
 
-    record FolderFilesResp(
+    public record FolderFilesResp(
             List<FileMeta> files,
             String next_page_token,
             boolean has_more
@@ -190,6 +222,16 @@ public class LarkApi {
 
         static ParameterizedTypeReference<LarkResponse<FolderFilesResp>> typeRef = new ParameterizedTypeReference<>() {
         };
+
+        public record FileMeta(
+                String token,
+                String name,
+                String type,
+                String parent_token,
+                String url
+        ) {
+
+        }
 
 
     }
@@ -229,6 +271,49 @@ public class LarkApi {
 
     }
 
+    record SubscribeFileResp() implements LarkResponseData {
+        static ParameterizedTypeReference<LarkResponse<SubscribeFileResp>> typeRef = new ParameterizedTypeReference<>() {
+        };
+    }
+
+
+    record FileMetaReq(
+            List<Doc> request_docs,
+            boolean with_url
+    ) {
+        record Doc(
+                String doc_token,
+                String doc_type
+        ) {
+        }
+    }
+
+    public record FileMetaResp(
+            List<Meta> metas,
+            List<Fail> failed_list
+    ) implements LarkResponseData {
+        static ParameterizedTypeReference<LarkResponse<FileMetaResp>> typeRef = new ParameterizedTypeReference<>() {
+        };
+
+        public record Meta(
+                String doc_token,
+                String doc_type,
+                String title,
+                String owner_id,
+                String create_time,
+                String latest_modify_user,
+                String latest_modify_time,
+                String url
+        ) {
+        }
+
+        record Fail(String token,
+                    int code) {
+
+        }
+    }
+
+
     public record PermissionMemberCreateReq(
             String member_type,
             String member_id,
@@ -256,74 +341,117 @@ public class LarkApi {
     }
 
 
-    record BlockGetAllResp(List<Item> items) implements LarkResponseData {
+    record BlockCreateReq(List<Item> children, int index) {
+
+    }
+
+    public record BlockCreateResp(List<Item> children) implements LarkResponseData {
+        static ParameterizedTypeReference<LarkResponse<BlockCreateResp>> typeRef = new ParameterizedTypeReference<>() {
+        };
+    }
+
+
+    public record BlockGetAllResp(List<Item> items) implements LarkResponseData {
         static ParameterizedTypeReference<LarkResponse<BlockGetAllResp>> typeRef = new ParameterizedTypeReference<>() {
         };
+    }
 
+    public record Item(
+            String block_id,
+            String parent_id,
+            List<String> children,
+            int block_type,
+            Block page,
+            Block text,
+            Block heading1,
+            Block heading2,
+            Block heading3,
+            Block heading4,
+            Block heading5,
+            Block heading6,
+            Block heading7,
+            Block heading8,
+            Block heading9,
+            Block bullet,
+            Block ordered,
+            Block code,
+            Block quote,
+            Block todo,
+            Callout callout
+    ) {
 
-        record Item(
-                String block_id,
-                String parent_id,
-                List<String> children,
-                int block_type,
-                Block page,
-                Block text,
-                Block heading1,
-                Block heading2,
-                Block heading3,
-                Block heading4,
-                Block heading5,
-                Block heading6,
-                Block heading7,
-                Block heading8,
-                Block heading9,
-                Block bullet,
-                Block ordered,
-                Block code,
-                Block quote,
-                Block todo
-        ) {
+        public static Item text(int blockType, Block text) {
+            return new Item(null, null, null, blockType, null, text, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
+        }
 
-            record Block(Style style,
-                         List<Element> elements) {
-                record Style(
-                        int align,
-                        boolean done,
-                        boolean folded,
-                        int language,
-                        boolean wrap
-                ) {
-                }
+        public static Item callout(int blockType, Callout callout) {
+            return new Item(null, null, null, blockType, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, callout);
+        }
 
-                record Element(TextRun textRun,
-                               MentionUser mention_user,
-                               MentionDoc mention_doc,
-                               Reminder reminder,
-                               File file
-                ) {
-
-                    record TextRun(String content) {
-                        record TextElementStyle(
-                                boolean bold,
-                                boolean italic,
-                                boolean strikethrough,
-                                boolean underline,
-                                boolean inline_code,
-                                int background_color,
-                                int text_color,
-                                Link link
-                        ) {
-
-                        }
-                    }
-
-
-                }
+        public record Block(Style style,
+                            List<Element> elements) {
+            public record Style(
+                    int align,
+                    boolean done,
+                    boolean folded,
+                    int language,
+                    boolean wrap
+            ) {
             }
-
 
         }
     }
+
+    public record Element(TextRun text_run,
+                          MentionUser mention_user,
+                          MentionDoc mention_doc,
+                          Reminder reminder,
+                          File file
+    ) {
+
+        public Element(TextRun textRun) {
+            this(textRun, null, null, null, null);
+        }
+    }
+
+
+    public record MentionUser(String user_id) {
+    }
+
+    public record File(String file_token, String source_block_id) {
+    }
+
+    public record Reminder(
+            String create_user_id,
+            boolean is_notify,
+            boolean is_whole_day,
+            String expire_time,
+            String notify_time
+    ) {
+    }
+
+
+    public record MentionDoc(
+            String token,
+            int obj_type,
+            String url,
+            String title
+    ) {
+    }
+
+    public record TextRun(String content) {
+
+    }
+
+    public record Callout(
+            Integer background_color,
+            Integer border_color,
+            Integer text_color,
+            String emoji_id
+    ) {
+
+    }
+
 
     record BlockGetResp() implements LarkResponseData {
         static ParameterizedTypeReference<LarkResponse<BlockGetResp>> typeRef = new ParameterizedTypeReference<>() {
@@ -403,42 +531,5 @@ public class LarkApi {
     record Origin(String platform_i18n_name, Href href) {
         record Href(String url, String title) {
         }
-    }
-
-    record MentionDoc(
-            String token,
-            int obj_type,
-            String url,
-            String title
-    ) {
-    }
-
-    record Reminder(
-            String create_user_id,
-            boolean is_notify,
-            boolean is_whole_day,
-            String expire_time,
-            String notify_time
-    ) {
-    }
-
-    record File(String file_token, String source_block_id) {
-
-    }
-
-    record MentionUser(String user_id) {
-    }
-
-    record Link(String url) {
-    }
-
-    record FileMeta(
-            String token,
-            String name,
-            String type,
-            String parent_token,
-            String url
-    ) {
-
     }
 }

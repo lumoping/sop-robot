@@ -25,7 +25,6 @@ spring:
 lark:
   appId: ${app_id:cli_a270a6db85fad00b}
   appSecret: ${app_secret:LZxrWWcHKavl6xyGLN0behga8y0neDku}
-  baseUrl: ${base_url:https://test-cm6i5qtcwl6o.feishu.cn}
 
 logging:
   level:
