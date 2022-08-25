@@ -135,6 +135,16 @@ public class LarkApi {
                 .flatMap(it -> it.success() ? Mono.just(it.data) : Mono.error(new LarkException(it.code + ":" + it.msg)));
     }
 
+    public Mono<BlockGetChildrenResp> getChildrenBlock(String tenantAccessToken, String documentId, String parentBlockId) {
+        return webClient.get()
+                .uri("open-apis/docx/v1/documents/{document_id}/blocks/{block_id}/children", documentId, parentBlockId)
+                .header(HttpHeaders.AUTHORIZATION, prefixBearer(tenantAccessToken))
+                .accept(MediaType.APPLICATION_JSON)
+                .retrieve()
+                .bodyToMono(BlockGetChildrenResp.typeRef)
+                .flatMap(it -> it.success() ? Mono.just(it.data) : Mono.error(new LarkException(it.code + ":" + it.msg)));
+    }
+
     public Mono<BlockCreateResp> createBlock(String tenantAccessToken, String documentId, String blockId, List<Item> blocks) {
         return webClient.post()
                 .uri("open-apis/docx/v1/documents/{document_id}/blocks/{block_id}/children", documentId, blockId)
@@ -347,6 +357,11 @@ public class LarkApi {
 
     public record BlockCreateResp(List<Item> children) implements LarkResponseData {
         static ParameterizedTypeReference<LarkResponse<BlockCreateResp>> typeRef = new ParameterizedTypeReference<>() {
+        };
+    }
+
+    public record BlockGetChildrenResp(List<Item> items) implements LarkResponseData{
+        static ParameterizedTypeReference<LarkResponse<BlockGetChildrenResp>> typeRef = new ParameterizedTypeReference<>() {
         };
     }
 

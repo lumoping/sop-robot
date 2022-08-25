@@ -6,12 +6,15 @@ import com.majun.soprobot.lark.api.LarkException;
 import com.majun.soprobot.lark.card.CardGenerator;
 import com.majun.soprobot.repo.ChatInfoRepo;
 import com.majun.soprobot.repo.SopRepo;
+import com.majun.soprobot.repo.SopTodoRepo;
 import com.majun.soprobot.repo.po.ChatInfo;
 import com.majun.soprobot.repo.po.Sop;
+import com.majun.soprobot.repo.po.SopTodo;
 import freemarker.template.TemplateException;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Component;
+import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.util.function.Tuple2;
 
@@ -32,6 +35,8 @@ public class LarkMessageConsumer {
 
     private final SopRepo sopRepo;
 
+    private final SopTodoRepo sopTodoRepo;
+
     private final CardGenerator cardGenerator;
 
 
@@ -46,7 +51,7 @@ public class LarkMessageConsumer {
                                LarkApi larkApi,
                                ChatInfoRepo chatInfoRepo,
                                SopRepo sopRepo,
-                               CardGenerator cardGenerator) {
+                               CardGenerator cardGenerator, SopTodoRepo sopTodoRepo) {
         this.larkApi = larkApi;
         tenantAccess = this.larkApi.tenantAccessToken(appId, appSecret)
                 .cache(access -> Duration.ofSeconds(access.expire()),
@@ -59,6 +64,7 @@ public class LarkMessageConsumer {
         this.chatInfoRepo = chatInfoRepo;
         this.sopRepo = sopRepo;
         this.cardGenerator = cardGenerator;
+        this.sopTodoRepo = sopTodoRepo;
     }
 
 
@@ -117,7 +123,7 @@ public class LarkMessageConsumer {
                 .doOnNext(it -> subscribeFile.apply(it.documentId(), "docx").subscribe())
                 .doOnNext(it -> createPermission.apply(it.documentId(), new PermissionMemberCreateReq("openchat", chatId, "full_access")).subscribe())
                 .flatMap(it -> getFileUrl.apply(it.documentId(), "docx")
-                        .doOnNext(url -> save.apply(new Sop(null, it.documentId(), url, it.title(), "暂无")))
+                        .doOnNext(url -> save.apply(new Sop(null, chatId, it.documentId(), url, it.title(), "暂无")).subscribe())
                         .flatMap(sendMessage))
                 .subscribe();
     }
@@ -134,25 +140,25 @@ public class LarkMessageConsumer {
 
     @KafkaListener(topics = "FILE_EDIT")
     void fileEdit(JsonNode message) {
-        //       var fileToken = message.get("event").get("file_token").asText();
-//        tenantAccess.flatMap(it -> larkApi.getAllBlock())
+        var fileToken = message.get("event").get("file_token").asText();
+        Flux<Item> itemFlux = tenantAccess.flatMapMany(it -> larkApi.getAllBlock(it.tenant_access_token(), fileToken).flatMapIterable(BlockGetAllResp::items));
+        Mono<String> desc = itemFlux.filter(item -> item.block_type() == 19)
+                .map(Item::children)
+                .flatMap(children -> itemFlux.filter(item -> children.contains(item.block_id()) && item.block_type() == 2))
+                .map(item -> item.text().elements().stream().map(Element::text_run).map(TextRun::content).reduce(new StringBuilder(), StringBuilder::append, StringBuilder::append))
+                .reduce(new StringBuilder(), (sb1, sb2) -> sb1.append("\n").append(sb2))
+                .map(StringBuilder::toString);
+
+        Flux<SopTodo> todo = itemFlux.filter(item -> item.block_type() == 17)
+                .map(item -> item.todo().elements().stream().filter(it -> it.text_run() != null).findFirst().map(Element::text_run).map(TextRun::content).orElse(""))
+                .map(it -> new SopTodo(null, fileToken, it));
+
+        desc.flatMap(it -> sopRepo.updateDescriptionByDocToken(it, fileToken))
+                .then(sopTodoRepo.deleteSopTodosByDocToken(fileToken))
+                .thenMany(sopTodoRepo.saveAll(todo))
+                .subscribe();
     }
 
-//    @KafkaListener(topics = "MessageReceive")
-//    void messageReceive(JsonNode message) {
-//    }
-//
-//
-//    @KafkaListener(topics = "FileTitleUpdate")
-//    Mono<Void> fileTitleUpdate(JsonNode message) {
-//
-//    }
-//
-//    @KafkaListener(topics = "FileEdit")
-//    Mono<Void> fileEdit(JsonNode message) {
-//
-//    }
-//
 //    @KafkaListener(topics = "FileTrashed")
 //    Mono<Void> fileTrashed(JsonNode message) {
 //

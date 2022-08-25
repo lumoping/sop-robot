@@ -16,6 +16,9 @@ public interface SopRepo extends ReactiveCrudRepository<Sop, Integer> {
     @Query("update sop set title = :title where doc_token = :docToken")
     Mono<Integer> updateTitleByDocToken(String title, String docToken);
 
+    @Modifying
+    @Query("update sop set description = :description where doc_token = :docToken")
+    Mono<Integer> updateDescriptionByDocToken(String description, String docToken);
 }
 
 
