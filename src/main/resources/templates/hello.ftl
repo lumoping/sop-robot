@@ -33,8 +33,7 @@
           "type": "primary",
           "value": {
             "chat_id": "${chatId()}",
-            "type": "CREATE_FILE",
-            "folder_token": "${folderToken()}"
+            "type": "CREATE_FILE"
           }
         }
       ]

@@ -10,30 +10,52 @@
     "template": "blue"
   },
   "elements": [
-    <#if match()>
+   <#if all()>
+       {
+       "tag": "markdown",
+       "content": "以下是所有的SOP文档"
+       },
+       <#else>
+           {
+           "tag": "markdown",
+           "content": "*根据关键词【${keyword()}】查询到以下SOP：*"
+           },
+   </#if>
     {
-      "tag": "markdown",
-      "content": "*根据关键词【${keyword()}】查询到以下SOP：*"
+        "tag": "hr"
     },
-    {
-      "tag": "hr"
-    },
-    {
-      "tag": "markdown",
-      "content": "<#list sops() as sop>[${sop.title()}](${sop.docUrl()})\n</#list>"
-    },
-    {
-      "tag": "hr"
-    },
-    <#else>
-    {
-      "tag": "markdown",
-      "content": "**根据关键词未查询到SOP**"
-    },
-    {
-      "tag": "hr"
-    },
-    </#if>
+   <#if sops()?? && (sops()?size > 0)>
+       {
+            "tag": "action",
+            "actions": [
+                <#list sops() as sop>
+                    {
+                        "tag": "button",
+                        "text": {
+                            "tag": "plain_text",
+                            "content": "123"
+                        },
+                        "type": "primary",
+                        "value": {
+                            "type": "DETAIL",
+                            "sopId": "${sop.id()}"
+                        }
+                    }
+                    <#if sop_has_next>
+                        ,
+                    </#if>
+                </#list>
+            ]
+       },
+       {
+            "tag": "hr"
+       },
+       <#else>
+           {
+                "tag": "markdown",
+                "content": "**暂无SOP**"
+           },
+   </#if>
     {
       "tag": "action",
       "actions": [
@@ -43,10 +65,22 @@
             "tag": "plain_text",
             "content": "查看全部"
           },
-          "type": "primary",
+          "type": "default",
           "value": {
             "chat_id": "${chatId()}",
             "type": "SEARCH_ALL"
+          }
+        },
+        {
+          "tag": "button",
+          "text": {
+             "tag": "plain_text",
+             "content": "创建SOP文档"
+          },
+          "type": "default",
+          "value": {
+             "chat_id": "${chatId()}",
+             "type": "CREATE_FILE"
           }
         }
       ]

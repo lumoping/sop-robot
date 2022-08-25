@@ -34,7 +34,10 @@ public class CardGenerator {
 
     }
 
-    public record SearchPageCardValues(String chatId, String keyword, List<Sop> sops, boolean match) {
-
+    public record SearchPageCardValues(String chatId,
+                                       List<Sop> sops,
+                                       boolean all,
+                                       String keyword
+    ) {
     }
 }

@@ -98,9 +98,8 @@ public class LarkMessageConsumer {
     void createFile(JsonNode message) {
         var openId = message.get("open_id").asText();
         var chatId = message.get("action").get("value").get("chat_id").asText();
-        var folderToken = message.get("action").get("value").get("folder_token").asText();
         var createFile = tenantAccess.map(TenantAccess::tenant_access_token)
-                .flatMap(token -> larkApi.createFile(token, folderToken));
+                .flatMap(token -> chatInfoRepo.findChatInfoByChatId(chatId).flatMap(it -> larkApi.createFile(token, it.folderToken())));
         BiFunction<String, String, Mono<String>> getFileUrl = (var fileToken, var fileType) -> tenantAccess.flatMap(it -> larkApi.fileMeta(it.tenant_access_token(), fileToken, fileType))
                 .map(FileMetaResp.Meta::url);
         Function<Sop, Mono<Sop>> save = sopRepo::save;
@@ -174,7 +173,7 @@ public class LarkMessageConsumer {
         var text = originalText.substring(originalText.lastIndexOf("@") + 8).trim();
         BiFunction<List<Sop>, Boolean, JsonNode> generateCard = (List<Sop> sops, Boolean matched) -> {
             try {
-                return objectMapper.readTree(cardGenerator.searchPageCard(new CardGenerator.SearchPageCardValues(chatId, text, sops, matched)));
+                return objectMapper.readTree(cardGenerator.searchPageCard(new CardGenerator.SearchPageCardValues(chatId, sops, false, text)));
             } catch (IOException | TemplateException e) {
                 throw new LarkException(e);
             }
@@ -185,6 +184,26 @@ public class LarkMessageConsumer {
                 .switchIfEmpty(sopRepo.findSopsByChatId(chatId).doFirst(() -> match.set(false)))
                 .collectList()
                 .map(it -> generateCard.apply(it, match.get()))
+                .flatMap(sendPersonalMessage)
+                .subscribe();
+    }
+
+    @KafkaListener(topics = "SEARCH_ALL")
+    void searchAll(JsonNode message) {
+        var openId = message.get("open_id").asText();
+        var chatId = message.get("action").get("value").get("chat_id").asText();
+        Function<List<Sop>, JsonNode> generateCard = (List<Sop> sops) -> {
+            try {
+                return objectMapper.readTree(cardGenerator.searchPageCard(new CardGenerator.SearchPageCardValues(chatId, sops, true, null)));
+            } catch (IOException | TemplateException e) {
+                throw new LarkException(e);
+            }
+        };
+        Function<JsonNode, Mono<Void>> sendPersonalMessage = (JsonNode card) -> tenantAccess.flatMap(it -> larkApi.sendPersonalMessage(it.tenant_access_token(), new SendPersonalMessageReq(chatId, openId, "interactive", card)));
+
+        sopRepo.findSopsByChatId(chatId)
+                .collectList()
+                .map(generateCard)
                 .flatMap(sendPersonalMessage)
                 .subscribe();
     }
