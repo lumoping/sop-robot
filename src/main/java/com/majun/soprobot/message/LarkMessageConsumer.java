@@ -165,19 +165,18 @@ public class LarkMessageConsumer {
 
     @KafkaListener(topics = "MESSAGE_RECEIVE")
     void messageReceive(JsonNode message) throws JsonProcessingException {
-        var openId = message.get("event").get("sender").get("sender_id").get("open_id").asText();
         var chatId = message.get("event").get("message").get("chat_id").asText();
         var originalContent = message.get("event").get("message").get("content").asText();
         var originalText = objectMapper.readTree(originalContent).get("text").asText();
         var text = originalText.substring(originalText.lastIndexOf("@") + 8).trim();
-        Function<List<Sop>, JsonNode> generateCard = (List<Sop> sops) -> {
+        Function<List<Sop>, String> generateCard = (List<Sop> sops) -> {
             try {
-                return objectMapper.readTree(cardGenerator.searchPageCard(new CardGenerator.SearchPageCardValues(chatId, sops, false, text)));
+                return cardGenerator.searchPageCard(new CardGenerator.SearchPageCardValues(chatId, sops, false, text));
             } catch (IOException | TemplateException e) {
                 throw new LarkException(e);
             }
         };
-        Function<JsonNode, Mono<Void>> sendPersonalMessage = (JsonNode card) -> tenantAccess.flatMap(it -> larkApi.sendPersonalMessage(it.tenant_access_token(), new SendPersonalMessageReq(chatId, openId, "interactive", card)));
+        Function<String, Mono<Void>> sendPersonalMessage = (String card) -> tenantAccess.flatMap(it -> larkApi.sendMessage(it.tenant_access_token(), "chat_id", new SendMessageReq(chatId, card, "interactive")));
         sopRepo.findSopsByChatIdAndTitleLike(chatId, "%" + text + "%")
                 .switchIfEmpty(sopRepo.findSopsByChatIdAndDescriptionLike(chatId, "%" + text + "%"))
                 .collectList()
