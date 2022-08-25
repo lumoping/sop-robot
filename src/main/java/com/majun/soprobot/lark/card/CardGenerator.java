@@ -21,12 +21,12 @@ public class CardGenerator {
 
 
     public String helloCard(HelloCardValues values) throws IOException, TemplateException {
-        return FreeMarkerTemplateUtils.processTemplateIntoString(configuration.getTemplate("hello.json"), values);
+        return FreeMarkerTemplateUtils.processTemplateIntoString(configuration.getTemplate("hello.ftl"), values);
     }
 
 
     public String searchPageCard(SearchPageCardValues values) throws IOException, TemplateException {
-        return FreeMarkerTemplateUtils.processTemplateIntoString(configuration.getTemplate("searchPage.json"), values);
+        return FreeMarkerTemplateUtils.processTemplateIntoString(configuration.getTemplate("searchPage.ftl"), values);
     }
 
 
