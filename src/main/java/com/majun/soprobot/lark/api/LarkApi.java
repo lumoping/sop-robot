@@ -189,11 +189,11 @@ public class LarkApi {
                 .flatMap(it -> it.success() ? Mono.empty() : Mono.error(new LarkException(it.code + ":" + it.msg)));
     }
 
-    public Mono<TaskCreateResp> createTask(String tenantAccessToken, SendMessageReq param) {
+    public Mono<TaskCreateResp> createTask(String tenantAccessToken, TaskCreateReq param) {
         return webClient.post()
                 .uri("open-apis/task/v1/tasks")
                 .header(HttpHeaders.AUTHORIZATION, prefixBearer(tenantAccessToken))
-                .body(Mono.just(param), SendMessageReq.class)
+                .body(Mono.just(param), TaskCreateReq.class)
                 .accept(MediaType.APPLICATION_JSON)
                 .retrieve()
                 .bodyToMono(TaskCreateResp.typeRef)
@@ -511,7 +511,7 @@ public class LarkApi {
     }
 
 
-    record TaskCreateReq(
+    public record TaskCreateReq(
             String summary,
             String description,
             String extra,
@@ -525,10 +525,14 @@ public class LarkApi {
             String rich_summary,
             String rich_description
     ) {
+
+        public static TaskCreateReq simple(String summary, Due due, Origin origin, boolean canEdit, List<String> collaboratorIds) {
+            return new TaskCreateReq(summary, null, null, due, origin, canEdit, null, collaboratorIds, null, null, null, null);
+        }
     }
 
 
-    record TaskCreateResp(
+    public record TaskCreateResp(
     ) implements LarkResponseData {
         static ParameterizedTypeReference<LarkResponse<TaskCreateResp>> typeRef = new ParameterizedTypeReference<>() {
         };
@@ -566,11 +570,11 @@ public class LarkApi {
 
     }
 
-    record Due(String time, String timezone, boolean is_all_day) {
+    public record Due(String time, String timezone, boolean is_all_day) {
     }
 
-    record Origin(String platform_i18n_name, Href href) {
-        record Href(String url, String title) {
+    public record Origin(String platform_i18n_name, Href href) {
+        public record Href(String url, String title) {
         }
     }
 }

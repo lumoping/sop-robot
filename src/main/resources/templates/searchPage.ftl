@@ -68,7 +68,7 @@
           },
           "type": "default",
           "value": {
-            "chat_id": "${chatId()}",
+            "chatId": "${chatId()}",
             "type": "SEARCH_ALL"
           }
         },
@@ -80,7 +80,7 @@
           },
           "type": "default",
           "value": {
-             "chat_id": "${chatId()}",
+             "chatId": "${chatId()}",
              "type": "CREATE_FILE"
           }
         }

@@ -33,8 +33,8 @@ class CardGeneratorTest {
         String s = cardGenerator.detailCard(new CardGenerator.DetailCardValues(
                 new Sop(1, "chatId", "token", "http://url", "标题", "描述"),
                 Arrays.asList(
-                        new SopTodo(1, "token", "todo1"),
-                        new SopTodo(2, "token", "todo2")
+                        new SopTodo(1, 22, "token", "todo1"),
+                        new SopTodo(2, 22, "token", "todo2")
                 )
         ));
         System.out.println(s);

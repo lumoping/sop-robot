@@ -13,4 +13,6 @@ public interface SopTodoRepo extends ReactiveCrudRepository<SopTodo, Integer> {
     Mono<Void> deleteSopTodosByDocToken(String docToken);
 
     Flux<SopTodo> findSopTodosByDocToken(String docToken);
+
+    Flux<SopTodo> findSopTodosBySopId(Integer sopId);
 }

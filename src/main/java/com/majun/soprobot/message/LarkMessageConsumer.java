@@ -21,8 +21,10 @@ import reactor.util.function.Tuple2;
 
 import java.io.IOException;
 import java.time.Duration;
+import java.util.Calendar;
 import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 
@@ -155,7 +157,8 @@ public class LarkMessageConsumer {
 
         var todo = itemFlux.filter(item -> item.block_type() == 17)
                 .map(item -> item.todo().elements().stream().filter(it -> it.text_run() != null).findFirst().map(Element::text_run).map(TextRun::content).orElse(""))
-                .map(it -> new SopTodo(null, fileToken, it));
+                .flatMap(it -> sopRepo.findSopByDocToken(fileToken)
+                        .map(sop -> new SopTodo(null, sop.id(), fileToken, it)));
 
         desc.flatMap(it -> sopRepo.updateDescriptionByDocToken(it, fileToken))
                 .then(sopTodoRepo.deleteSopTodosByDocToken(fileToken))
@@ -188,7 +191,7 @@ public class LarkMessageConsumer {
     @KafkaListener(topics = "SEARCH_ALL")
     void searchAll(JsonNode message) {
         var openId = message.get("open_id").asText();
-        var chatId = message.get("action").get("value").get("chat_id").asText();
+        var chatId = message.get("action").get("value").get("chatId").asText();
         Function<List<Sop>, JsonNode> generateCard = (List<Sop> sops) -> {
             try {
                 return objectMapper.readTree(cardGenerator.searchPageCard(new CardGenerator.SearchPageCardValues(chatId, sops, true, null)));
@@ -222,6 +225,31 @@ public class LarkMessageConsumer {
                 });
         Function<JsonNode, Mono<Void>> sendPersonalMessage = (JsonNode card) -> tenantAccess.flatMap(it -> larkApi.sendPersonalMessage(it.tenant_access_token(), new SendPersonalMessageReq(chatId, openId, "interactive", card)));
         generateCard.flatMap(sendPersonalMessage).subscribe();
+    }
+
+    @KafkaListener(topics = "START_TODO")
+    void startTodo(JsonNode message) {
+        var openId = message.get("open_id").asText();
+        var sopId = message.get("action").get("value").get("sopId").asInt();
+        var findSop = sopRepo.findById(sopId);
+        var findTodos = sopTodoRepo.findSopTodosBySopId(sopId);
+        AtomicInteger index = new AtomicInteger(1);
+        BiFunction<Sop, SopTodo, TaskCreateReq> buildTaskCreateReq = (Sop sop, SopTodo todo) ->
+        {
+            Calendar calendar = Calendar.getInstance();
+            calendar.add(Calendar.MINUTE, index.getAndIncrement() * 15);
+            return TaskCreateReq.simple(
+                    todo.description(),
+                    new Due(String.valueOf((calendar.getTimeInMillis() / 1000)), null, false),
+                    new Origin("""
+                            "{"zh_cn": "SOP", "en_us": "SOP"}"
+                            """, new Origin.Href(sop.docUrl(), sop.title())),
+                    true,
+                    Collections.singletonList(openId));
+        };
+        findSop.flatMapMany(sop -> findTodos.map(todo -> buildTaskCreateReq.apply(sop, todo)))
+                .flatMap(it -> tenantAccess.flatMap(access -> larkApi.createTask(access.tenant_access_token(), it)))
+                .subscribe();
     }
 
 }
