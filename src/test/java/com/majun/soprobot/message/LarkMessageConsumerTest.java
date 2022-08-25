@@ -22,7 +22,7 @@ class LarkMessageConsumerTest {
                         throwable -> Duration.ZERO,
                         () -> Duration.ZERO)
                 .map(LarkApi.TenantAccess::tenant_access_token)
-                .flatMap(token -> larkApi.sendMessage(token, "chat_id", new LarkApi.SendMessageReq("oc_ec46576cca3e83d519c01770f130c2ca", LarkMessageConsumer.CONTENT, "interactive")))
+                .flatMap(token -> larkApi.sendMessage(token, "chat_id", new LarkApi.SendMessageReq("oc_ec46576cca3e83d519c01770f130c2ca", "", "interactive")))
                 .subscribe(value -> {
                 }, System.err::println, () -> System.out.println("finish"));
     }

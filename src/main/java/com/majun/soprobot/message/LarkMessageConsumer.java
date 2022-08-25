@@ -23,7 +23,6 @@ import java.io.IOException;
 import java.time.Duration;
 import java.util.Collections;
 import java.util.List;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 
@@ -171,7 +170,7 @@ public class LarkMessageConsumer {
         var originalContent = message.get("event").get("message").get("content").asText();
         var originalText = objectMapper.readTree(originalContent).get("text").asText();
         var text = originalText.substring(originalText.lastIndexOf("@") + 8).trim();
-        BiFunction<List<Sop>, Boolean, JsonNode> generateCard = (List<Sop> sops, Boolean matched) -> {
+        Function<List<Sop>, JsonNode> generateCard = (List<Sop> sops) -> {
             try {
                 return objectMapper.readTree(cardGenerator.searchPageCard(new CardGenerator.SearchPageCardValues(chatId, sops, false, text)));
             } catch (IOException | TemplateException e) {
@@ -179,11 +178,10 @@ public class LarkMessageConsumer {
             }
         };
         Function<JsonNode, Mono<Void>> sendPersonalMessage = (JsonNode card) -> tenantAccess.flatMap(it -> larkApi.sendPersonalMessage(it.tenant_access_token(), new SendPersonalMessageReq(chatId, openId, "interactive", card)));
-        AtomicBoolean match = new AtomicBoolean(true);
-        sopRepo.findSopsByChatIdAndDescriptionLike(chatId, "%" + text + "%")
-                .switchIfEmpty(sopRepo.findSopsByChatId(chatId).doFirst(() -> match.set(false)))
+        sopRepo.findSopsByChatIdAndTitleLike(chatId, "%" + text + "%")
+                .switchIfEmpty(sopRepo.findSopsByChatIdAndDescriptionLike(chatId, "%" + text + "%"))
                 .collectList()
-                .map(it -> generateCard.apply(it, match.get()))
+                .map(generateCard)
                 .flatMap(sendPersonalMessage)
                 .subscribe();
     }
@@ -206,6 +204,13 @@ public class LarkMessageConsumer {
                 .map(generateCard)
                 .flatMap(sendPersonalMessage)
                 .subscribe();
+    }
+
+    @KafkaListener(topics = "DETAIL")
+    void detail(JsonNode message) {
+        var sopId = message.get("action").get("value").get("sopId").asText();
+
+
     }
 
 }

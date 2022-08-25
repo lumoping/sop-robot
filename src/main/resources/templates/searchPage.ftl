@@ -33,7 +33,7 @@
                         "tag": "button",
                         "text": {
                             "tag": "plain_text",
-                            "content": "123"
+                            "content": "${sop.title()}"
                         },
                         "type": "primary",
                         "value": {

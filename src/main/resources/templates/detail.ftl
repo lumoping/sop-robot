@@ -12,21 +12,21 @@
   "elements": [
     {
       "tag": "markdown",
-      "content": "**案件状态同步**"
+      "content": "**${sop().title()}**"
     },
     {
       "tag": "hr"
     },
     {
       "tag": "markdown",
-      "content": "**简介：**案件状态同步失败处理流程"
+      "content": "**简介：**${sop().description()}"
     },
     {
       "tag": "hr"
     },
     {
       "tag": "markdown",
-      "content": "**Steps:**\n  1. 查询task_receive表错误原因\n  2. 调用案件状态接口 "
+      "content": "**Steps:**\n<#list todos() as todo>  ${todo_index + 1}. ${todo.description()}\n</#list>"
     },
     {
       "tag": "hr"
@@ -34,20 +34,27 @@
     {
       "tag": "action",
       "actions": [
-        {
-          "tag": "button",
-          "text": {
-            "tag": "plain_text",
-            "content": "开始执行"
-          },
-          "type": "primary"
-        },
+        <#if todos()?? && (todos()?size > 0)>
+            {
+                "tag": "button",
+                "text": {
+                    "tag": "plain_text",
+                    "content": "开始执行"
+                },
+                "type": "primary",
+                "value": {
+                    "sopId": "${sop().id()}",
+                    "type": "START_TODO"
+                }
+            },
+        </#if>
         {
           "tag": "button",
           "text": {
             "tag": "plain_text",
             "content": "查看云文档"
           },
+          "url": "${sop().docUrl()}",
           "type": "default"
         }
       ]

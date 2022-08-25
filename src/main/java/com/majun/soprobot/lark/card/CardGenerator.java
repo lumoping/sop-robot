@@ -1,6 +1,7 @@
 package com.majun.soprobot.lark.card;
 
 import com.majun.soprobot.repo.po.Sop;
+import com.majun.soprobot.repo.po.SopTodo;
 import freemarker.template.Configuration;
 import freemarker.template.TemplateException;
 import org.springframework.stereotype.Component;
@@ -29,6 +30,10 @@ public class CardGenerator {
         return FreeMarkerTemplateUtils.processTemplateIntoString(configuration.getTemplate("searchPage.ftl"), values);
     }
 
+    public String detailCard(DetailCardValues values) throws IOException, TemplateException {
+        return FreeMarkerTemplateUtils.processTemplateIntoString(configuration.getTemplate("detail.ftl"), values);
+    }
+
 
     public record HelloCardValues(String chatId, String folderToken) {
 
@@ -39,5 +44,9 @@ public class CardGenerator {
                                        boolean all,
                                        String keyword
     ) {
+    }
+
+    public record DetailCardValues(Sop sop,
+                                   List<SopTodo> todos) {
     }
 }

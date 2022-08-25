@@ -17,6 +17,8 @@ public interface SopRepo extends ReactiveCrudRepository<Sop, Integer> {
 
     Flux<Sop> findSopsByChatId(String chatId);
 
+    Flux<Sop> findSopsByChatIdAndTitleLike(String chatId, String title);
+
     Flux<Sop> findSopsByChatIdAndDescriptionLike(String chatId, String description);
 
     @Modifying
