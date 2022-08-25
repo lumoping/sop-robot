@@ -1,6 +1,8 @@
 package com.majun.soprobot.message;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.majun.soprobot.lark.api.LarkApi;
 import com.majun.soprobot.lark.api.LarkException;
 import com.majun.soprobot.lark.card.CardGenerator;
@@ -14,13 +16,14 @@ import freemarker.template.TemplateException;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Component;
-import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.util.function.Tuple2;
 
 import java.io.IOException;
 import java.time.Duration;
 import java.util.Collections;
+import java.util.List;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 
@@ -45,6 +48,8 @@ public class LarkMessageConsumer {
     private final Mono<String> rootFolderToken;
 
     private final Mono<Tuple2<String, String>> tokens;
+
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
     public LarkMessageConsumer(@Value("${lark.appId}") String appId,
                                @Value("${lark.appSecret}") String appSecret,
@@ -141,15 +146,16 @@ public class LarkMessageConsumer {
     @KafkaListener(topics = "FILE_EDIT")
     void fileEdit(JsonNode message) {
         var fileToken = message.get("event").get("file_token").asText();
-        Flux<Item> itemFlux = tenantAccess.flatMapMany(it -> larkApi.getAllBlock(it.tenant_access_token(), fileToken).flatMapIterable(BlockGetAllResp::items));
-        Mono<String> desc = itemFlux.filter(item -> item.block_type() == 19)
+        var itemFlux = tenantAccess.flatMapMany(it -> larkApi.getAllBlock(it.tenant_access_token(), fileToken).flatMapIterable(BlockGetAllResp::items));
+        var desc = itemFlux.filter(item -> item.block_type() == 19)
                 .map(Item::children)
                 .flatMap(children -> itemFlux.filter(item -> children.contains(item.block_id()) && item.block_type() == 2))
                 .map(item -> item.text().elements().stream().map(Element::text_run).map(TextRun::content).reduce(new StringBuilder(), StringBuilder::append, StringBuilder::append))
                 .reduce(new StringBuilder(), (sb1, sb2) -> sb1.append("\n").append(sb2))
-                .map(StringBuilder::toString);
+                .map(StringBuilder::toString)
+                .map(String::trim);
 
-        Flux<SopTodo> todo = itemFlux.filter(item -> item.block_type() == 17)
+        var todo = itemFlux.filter(item -> item.block_type() == 17)
                 .map(item -> item.todo().elements().stream().filter(it -> it.text_run() != null).findFirst().map(Element::text_run).map(TextRun::content).orElse(""))
                 .map(it -> new SopTodo(null, fileToken, it));
 
@@ -159,14 +165,28 @@ public class LarkMessageConsumer {
                 .subscribe();
     }
 
-//    @KafkaListener(topics = "FileTrashed")
-//    Mono<Void> fileTrashed(JsonNode message) {
-//
-//    }
-//
-//    @KafkaListener(topics = "FileDelete")
-//    Mono<Void> fileDelete(JsonNode message) {
-//
-//    }
+    @KafkaListener(topics = "MESSAGE_RECEIVE")
+    void messageReceive(JsonNode message) throws JsonProcessingException {
+        var openId = message.get("event").get("sender").get("sender_id").get("open_id").asText();
+        var chatId = message.get("event").get("message").get("chat_id").asText();
+        var originalContent = message.get("event").get("message").get("content").asText();
+        var originalText = objectMapper.readTree(originalContent).get("text").asText();
+        var text = originalText.substring(originalText.lastIndexOf("@") + 8).trim();
+        BiFunction<List<Sop>, Boolean, JsonNode> generateCard = (List<Sop> sops, Boolean matched) -> {
+            try {
+                return objectMapper.readTree(cardGenerator.searchPageCard(new CardGenerator.SearchPageCardValues(chatId, text, sops, matched)));
+            } catch (IOException | TemplateException e) {
+                throw new LarkException(e);
+            }
+        };
+        Function<JsonNode, Mono<Void>> sendPersonalMessage = (JsonNode card) -> tenantAccess.flatMap(it -> larkApi.sendPersonalMessage(it.tenant_access_token(), new SendPersonalMessageReq(chatId, openId, "interactive", card)));
+        AtomicBoolean match = new AtomicBoolean(true);
+        sopRepo.findSopsByChatIdAndDescriptionLike(chatId, "%" + text + "%")
+                .switchIfEmpty(sopRepo.findSopsByChatId(chatId).doFirst(() -> match.set(false)))
+                .collectList()
+                .map(it -> generateCard.apply(it, match.get()))
+                .flatMap(sendPersonalMessage)
+                .subscribe();
+    }
 
 }

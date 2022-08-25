@@ -21,6 +21,7 @@ sop-robot是一个提供SOP（Standard Operating Procedure）服务的飞书机�
   - [获取块](https://open.feishu.cn/document/ukTMukTMukTM/uUDN04SN0QjL1QDN/document-docx/docx-v1/document-block/get)
 - 消息与群组
   - [发送消息](https://open.feishu.cn/document/uAjLw4CM/ukTMukTMukTM/reference/im-v1/message/create)
+  - [发送仅特定人可见的消息卡片](https://open.feishu.cn/document/ukTMukTMukTM/uETOyYjLxkjM24SM5IjN)
 - 任务
   - [创建任务](https://open.feishu.cn/open-apis/task/v1/tasks)
 

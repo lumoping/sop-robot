@@ -10,10 +10,30 @@
     "template": "blue"
   },
   "elements": [
+    <#if match()>
     {
       "tag": "markdown",
-      "content": "点击以下按钮查看详情"
+      "content": "*根据关键词【${keyword()}】查询到以下SOP：*"
     },
+    {
+      "tag": "hr"
+    },
+    {
+      "tag": "markdown",
+      "content": "<#list sops() as sop>[${sop.title()}](${sop.docUrl()})\n</#list>"
+    },
+    {
+      "tag": "hr"
+    },
+    <#else>
+    {
+      "tag": "markdown",
+      "content": "**根据关键词未查询到SOP**"
+    },
+    {
+      "tag": "hr"
+    },
+    </#if>
     {
       "tag": "action",
       "actions": [
@@ -21,19 +41,18 @@
           "tag": "button",
           "text": {
             "tag": "plain_text",
-            "content": "案件状态同步"
+            "content": "查看全部"
           },
-          "type": "primary"
-        },
-        {
-          "tag": "button",
-          "text": {
-            "tag": "plain_text",
-            "content": "Git回退"
-          },
-          "type": "primary"
+          "type": "primary",
+          "value": {
+            "chat_id": "${chatId()}",
+            "type": "SEARCH_ALL"
+          }
         }
       ]
+    },
+    {
+      "tag": "hr"
     },
     {
       "tag": "note",

@@ -1,5 +1,6 @@
 package com.majun.soprobot.lark.api;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import io.netty.handler.logging.LogLevel;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpHeaders;
@@ -174,6 +175,17 @@ public class LarkApi {
                 .accept(MediaType.APPLICATION_JSON)
                 .retrieve()
                 .bodyToMono(SendMessageResp.typeRef)
+                .flatMap(it -> it.success() ? Mono.empty() : Mono.error(new LarkException(it.code + ":" + it.msg)));
+    }
+
+    public Mono<Void> sendPersonalMessage(String tenantAccessToken, SendPersonalMessageReq param) {
+        return webClient.post()
+                .uri("open-apis/ephemeral/v1/send")
+                .header(HttpHeaders.AUTHORIZATION, prefixBearer(tenantAccessToken))
+                .body(Mono.just(param), SendPersonalMessageReq.class)
+                .accept(MediaType.APPLICATION_JSON)
+                .retrieve()
+                .bodyToMono(SendPersonalMessageResp.typeRef)
                 .flatMap(it -> it.success() ? Mono.empty() : Mono.error(new LarkException(it.code + ":" + it.msg)));
     }
 
@@ -360,7 +372,7 @@ public class LarkApi {
         };
     }
 
-    public record BlockGetChildrenResp(List<Item> items) implements LarkResponseData{
+    public record BlockGetChildrenResp(List<Item> items) implements LarkResponseData {
         static ParameterizedTypeReference<LarkResponse<BlockGetChildrenResp>> typeRef = new ParameterizedTypeReference<>() {
         };
     }
@@ -484,6 +496,20 @@ public class LarkApi {
         static ParameterizedTypeReference<LarkResponse<SendMessageResp>> typeRef = new ParameterizedTypeReference<>() {
         };
     }
+
+    public record SendPersonalMessageReq(
+            String chat_id,
+            String open_id,
+            String msg_type,
+            JsonNode card
+    ) {
+    }
+
+    public record SendPersonalMessageResp() implements LarkResponseData {
+        static ParameterizedTypeReference<LarkResponse<SendPersonalMessageResp>> typeRef = new ParameterizedTypeReference<>() {
+        };
+    }
+
 
     record TaskCreateReq(
             String summary,
