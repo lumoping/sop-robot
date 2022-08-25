@@ -38,7 +38,8 @@
                         "type": "primary",
                         "value": {
                             "type": "DETAIL",
-                            "sopId": "${sop.id()}"
+                            "sopId": ${sop.id()},
+                            "chatId": "${sop.chatId()}"
                         }
                     }
                     <#if sop_has_next>

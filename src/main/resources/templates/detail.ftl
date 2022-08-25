@@ -26,7 +26,11 @@
     },
     {
       "tag": "markdown",
-      "content": "**Steps:**\n<#list todos() as todo>  ${todo_index + 1}. ${todo.description()}\n</#list>"
+      <#if todos()?? && (todos()?size > 0)>
+        "content": "**Steps:**\n<#list todos() as todo>  ${todo_index + 1}. ${todo.description()}\n</#list>"
+        <#else>
+          "content": "**Steps:** 暂无"
+      </#if>
     },
     {
       "tag": "hr"
@@ -43,7 +47,7 @@
                 },
                 "type": "primary",
                 "value": {
-                    "sopId": "${sop().id()}",
+                    "sopId": ${sop().id()},
                     "type": "START_TODO"
                 }
             },

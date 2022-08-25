@@ -96,7 +96,7 @@ public class LarkMessageConsumer {
     @KafkaListener(topics = "CREATE_FILE")
     void createFile(JsonNode message) {
         var openId = message.get("open_id").asText();
-        var chatId = message.get("action").get("value").get("chat_id").asText();
+        var chatId = message.get("action").get("value").get("chatId").asText();
         var createFile = tenantAccess.map(TenantAccess::tenant_access_token)
                 .flatMap(token -> chatInfoRepo.findChatInfoByChatId(chatId).flatMap(it -> larkApi.createFile(token, it.folderToken())));
         BiFunction<String, String, Mono<String>> getFileUrl = (var fileToken, var fileType) -> tenantAccess.flatMap(it -> larkApi.fileMeta(it.tenant_access_token(), fileToken, fileType))
@@ -208,9 +208,21 @@ public class LarkMessageConsumer {
 
     @KafkaListener(topics = "DETAIL")
     void detail(JsonNode message) {
-        var sopId = message.get("action").get("value").get("sopId").asText();
-
-
+        var openId = message.get("open_id").asText();
+        var sopId = message.get("action").get("value").get("sopId").asInt();
+        var chatId = message.get("action").get("value").get("chatId").asText();
+        var sop = sopRepo.findById(sopId);
+        var todos = sop.flatMapMany(it -> sopTodoRepo.findSopTodosByDocToken(it.docToken())).collectList();
+        var generateCard = Mono.zip(sop, todos)
+                .map(it -> {
+                    try {
+                        return objectMapper.readTree(cardGenerator.detailCard(new CardGenerator.DetailCardValues(it.getT1(), it.getT2())));
+                    } catch (IOException | TemplateException e) {
+                        throw new LarkException(e);
+                    }
+                });
+        Function<JsonNode, Mono<Void>> sendPersonalMessage = (JsonNode card) -> tenantAccess.flatMap(it -> larkApi.sendPersonalMessage(it.tenant_access_token(), new SendPersonalMessageReq(chatId, openId, "interactive", card)));
+        generateCard.flatMap(sendPersonalMessage).subscribe();
     }
 
 }

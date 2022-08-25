@@ -32,7 +32,7 @@
           },
           "type": "primary",
           "value": {
-            "chat_id": "${chatId()}",
+            "chatId": "${chatId()}",
             "type": "CREATE_FILE"
           }
         }

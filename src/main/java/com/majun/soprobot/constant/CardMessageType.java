@@ -6,6 +6,8 @@ import java.util.Optional;
 public enum CardMessageType {
     CREATE_FILE,
     SEARCH_ALL,
+    DETAIL,
+    START_TODO
     ;
 
     public static Optional<CardMessageType> of(String value) {
