@@ -16,13 +16,6 @@ create table if not exists sop
     description text
 );
 
-create table if not exists sop_labels
-(
-    id        serial primary key,
-    doc_token varchar(255),
-    name      varchar(50)
-);
-
 create table if not exists sop_todo
 (
     id          serial primary key,

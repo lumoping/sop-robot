@@ -9,8 +9,6 @@ public enum EventType {
     MESSAGE_RECEIVE("im.message.receive_v1"),
     FILE_TITLE_UPDATE("drive.file.title_updated_v1"),
     FILE_EDIT("drive.file.edit_v1"),
-    FILE_TRASHED("drive.file.trashed_v1"),
-    FILE_DELETE("drive.file.deleted_v1"),
     ;
 
 
