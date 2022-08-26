@@ -19,7 +19,7 @@ create table if not exists sop
 create table if not exists sop_todo
 (
     id          serial primary key,
-    sop_id      int,
+    sop_id      bigint unsigned,
     doc_token   varchar(255),
     description text,
     foreign key (sop_id) references sop (id)

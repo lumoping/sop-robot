@@ -1,7 +1,7 @@
 spring:
   r2dbc:
-    url: r2dbc:${DB_URL:postgresql://localhost:5432/postgres}
-    username: ${DB_USER:postgres}
+    url: r2dbcs:${DB_URL:mysql://localhost:3306/sop}
+    username: ${DB_USER:root}
     password: ${DB_PASSWORD:zoobidoobi}
   sql:
     init:
@@ -29,3 +29,5 @@ lark:
 logging:
   level:
     reactor.netty.http.client.HttpClient: DEBUG
+    org.springframework.r2dbc: DEBUG
+    dev.miku.r2dbc-mysql: DEBUG

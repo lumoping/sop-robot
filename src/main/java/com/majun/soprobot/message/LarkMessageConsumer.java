@@ -16,6 +16,7 @@ import freemarker.template.TemplateException;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Component;
+import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.util.function.Tuple2;
 
@@ -155,14 +156,16 @@ public class LarkMessageConsumer {
                 .map(StringBuilder::toString)
                 .map(String::trim);
 
-        var todo = itemFlux.filter(item -> item.block_type() == 17)
+        Mono<Sop> findSop = sopRepo.findSopByDocToken(fileToken);
+
+        Function<Sop, Flux<SopTodo>> findTodos = (Sop sop) -> itemFlux.filter(item -> item.block_type() == 17)
                 .map(item -> item.todo().elements().stream().filter(it -> it.text_run() != null).findFirst().map(Element::text_run).map(TextRun::content).orElse(""))
-                .flatMap(it -> sopRepo.findSopByDocToken(fileToken)
-                        .map(sop -> new SopTodo(null, sop.id(), fileToken, it)));
+                .map(it -> new SopTodo(null, sop.id(), fileToken, it));
+        var todos = findSop.flatMapMany(findTodos);
 
         desc.flatMap(it -> sopRepo.updateDescriptionByDocToken(it, fileToken))
                 .then(sopTodoRepo.deleteSopTodosByDocToken(fileToken))
-                .thenMany(sopTodoRepo.saveAll(todo))
+                .thenMany(sopTodoRepo.saveAll(todos))
                 .subscribe();
     }
 
