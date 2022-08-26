@@ -245,7 +245,7 @@ public class LarkMessageConsumer {
                     todo.description(),
                     new Due(String.valueOf((calendar.getTimeInMillis() / 1000)), null, false),
                     new Origin("""
-                            "{"zh_cn": "SOP", "en_us": "SOP"}"
+                            {"zh_cn": "SOP", "en_us": "SOP"}
                             """, new Origin.Href(sop.docUrl(), sop.title())),
                     true,
                     Collections.singletonList(openId));
